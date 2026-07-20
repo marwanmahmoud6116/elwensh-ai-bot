@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const { getOrCreateSession } = require('../services/session');
+const { getCategories } = require('../services/menu');
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 
@@ -30,7 +32,7 @@ router.get('/webhook', (req, res) => {
  * sends a message, a message status changes, etc). We only care about
  * actual incoming text messages for now.
  */
-router.post('/webhook', (req, res) => {
+router.post('/webhook', async (req, res) => {
   // Respond to Meta immediately - they expect a fast 200 OK and will retry
   // (and eventually disable your webhook) if you're slow or don't respond.
   res.sendStatus(200);
@@ -53,8 +55,18 @@ router.post('/webhook', (req, res) => {
 
     console.log(`Incoming message from ${from} (${messageType}):`, textBody);
 
-    // TODO: hand this off to the message-processing pipeline
-    // (load/create session -> ask OpenAI to interpret -> update Supabase -> reply)
+    // Load this customer's session (or create one if it's their first message).
+    const session = await getOrCreateSession(from);
+    console.log(`Session for ${from} - step: ${session.state.step}, cart items: ${session.state.cart.length}`);
+
+    // Pull the current menu categories - this is the data the OpenAI step
+    // will eventually use to understand what the customer is asking for.
+    const categories = await getCategories();
+    console.log(`Loaded ${categories.length} categories:`, categories.map(c => c.name_en).join(', '));
+
+    // TODO: send this (session + categories + the customer's message) to
+    // OpenAI to figure out what the customer wants, update the session,
+    // and reply via the WhatsApp Cloud API.
   } catch (err) {
     console.error('Error processing incoming webhook payload:', err);
   }
