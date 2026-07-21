@@ -13,10 +13,11 @@ const client = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
 });
 
-// Free-tier model, good for multilingual/dialogue use cases. Free model
-// availability on OpenRouter rotates over time - if this one disappears,
-// check https://openrouter.ai/models?max_price=0 for a current replacement.
-const MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
+// Free-tier router: automatically picks from whatever free models are
+// currently available on OpenRouter, instead of us hardcoding one specific
+// model slug that can get pulled from the free tier without warning (as
+// happened with meta-llama/llama-3.3-70b-instruct:free).
+const MODEL = 'openrouter/free';
 
 /**
  * Sends the customer's message, along with the menu categories and their
