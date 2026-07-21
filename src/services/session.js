@@ -1,13 +1,21 @@
 const supabase = require('./supabase');
 
 /**
- * Default state for a brand new customer - no messages exchanged yet,
- * empty cart, nothing selected. Shape this however the OpenAI/order logic
- * ends up needing; it's just a JSON blob so it can evolve freely.
+ * Default state for a brand new customer: no conversation yet, and an
+ * empty draft order following the full stage-based flow (items -> confirm
+ * items -> delivery/pickup -> collect info -> confirm -> complete).
  */
 const DEFAULT_STATE = {
-  step: 'greeting',
-  cart: [],
+  history: [], // [{ role: 'user'|'assistant', content: '...' }, ...]
+  items: [], // [{ name_ar, size_name, quantity }, ...]
+  itemsConfirmed: false,
+  fulfillmentType: null, // 'delivery' | 'pickup'
+  customerName: null,
+  customerAddress: null,
+  customerPhone: null,
+  customerZone: null,
+  fulfillmentConfirmed: false,
+  status: 'in_progress', // 'in_progress' | 'confirmed'
 };
 
 /**

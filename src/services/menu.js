@@ -43,4 +43,22 @@ async function getMenuProducts() {
   return data;
 }
 
-module.exports = { getCategories, getMenuProducts };
+/**
+ * Fetches all active delivery zones with their fees - this is what lets the
+ * AI (and our own price calculation) match a customer's stated area to a
+ * real zone and fee.
+ */
+async function getDeliveryZones() {
+  const { data, error } = await supabase
+    .from('delivery_prices')
+    .select('area, price, active')
+    .eq('active', true);
+
+  if (error) {
+    throw new Error(`Failed to fetch delivery zones: ${error.message}`);
+  }
+
+  return data;
+}
+
+module.exports = { getCategories, getMenuProducts, getDeliveryZones };
