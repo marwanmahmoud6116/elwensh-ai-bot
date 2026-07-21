@@ -190,29 +190,48 @@ async function interpretMessage({ customerMessage, menuProducts, deliveryZones, 
 
   let parsed;
   let rawText = '';
+  const MAX_ATTEMPTS = 2;
 
-  try {
-    const response = await callModelWithRetry(messages);
-    rawText = response.choices[0].message.content;
-    parsed = extractJson(rawText);
-    if (!parsed || typeof parsed !== 'object' || !parsed.reply_to_customer) {
-      throw new Error('Parsed JSON is missing required fields');
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const response = await callModelWithRetry(messages);
+      rawText = response.choices[0].message.content;
+      const candidate = extractJson(rawText);
+      if (!candidate || typeof candidate !== 'object' || !candidate.reply_to_customer) {
+        throw new Error('Parsed JSON is missing required fields');
+      }
+      parsed = candidate;
+      break; // success - stop retrying
+    } catch (err) {
+      console.error(`AI call/parse attempt ${attempt} failed:`, err.message, rawText);
+      if (attempt === MAX_ATTEMPTS) {
+        // Out of attempts - fall back to a safe default that PRESERVES the
+        // customer's existing order instead of losing it. Important: this
+        // must use the same { menu_item_name, size_name, quantity } shape
+        // the AI would have used, since the validation step right after
+        // this expects that shape - passing state.items directly (which
+        // uses { name_ar, ... }) would make every item look "invalid" and
+        // silently wipe the customer's order.
+        parsed = {
+          reply_to_customer: 'معلش، ممكن تعيد تاني؟ 🙏',
+          show_menu_images: false,
+          order_items: state.items.map(item => ({
+            menu_item_name: item.name_ar,
+            size_name: item.size_name,
+            quantity: item.quantity,
+          })),
+          items_confirmed: state.itemsConfirmed,
+          fulfillment_type: state.fulfillmentType,
+          customer_name: state.customerName,
+          customer_address: state.customerAddress,
+          customer_phone: state.customerPhone,
+          customer_zone: state.customerZone,
+          fulfillment_confirmed: state.fulfillmentConfirmed,
+          order_complete: false,
+        };
+        rawText = '';
+      }
     }
-  } catch (err) {
-    console.error('AI call failed or returned unusable JSON:', err.message, rawText);
-    parsed = {
-      reply_to_customer: 'معلش، ممكن توضح طلبك أكتر؟ 🙏',
-      show_menu_images: false,
-      order_items: state.items,
-      items_confirmed: state.itemsConfirmed,
-      fulfillment_type: state.fulfillmentType,
-      customer_name: state.customerName,
-      customer_address: state.customerAddress,
-      customer_phone: state.customerPhone,
-      customer_zone: state.customerZone,
-      fulfillment_confirmed: state.fulfillmentConfirmed,
-      order_complete: false,
-    };
   }
 
   state.history.push({ role: 'assistant', content: rawText || JSON.stringify(parsed) });
