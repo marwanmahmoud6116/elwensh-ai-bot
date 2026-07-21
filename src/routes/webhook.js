@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getOrCreateSession } = require('../services/session');
 const { getCategories } = require('../services/menu');
+const { interpretMessage } = require('../services/ai');
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 
@@ -64,9 +65,19 @@ router.post('/webhook', async (req, res) => {
     const categories = await getCategories();
     console.log(`Loaded ${categories.length} categories:`, categories.map(c => c.name_en).join(', '));
 
-    // TODO: send this (session + categories + the customer's message) to
-    // OpenAI to figure out what the customer wants, update the session,
-    // and reply via the WhatsApp Cloud API.
+    // Ask the AI to interpret what the customer wants, given the menu and
+    // their current session state. For now we just log the reply - actually
+    // sending it back via WhatsApp, and updating the session based on it,
+    // come next.
+    const aiReply = await interpretMessage({
+      customerMessage: textBody,
+      categories,
+      session,
+    });
+    console.log(`AI reply for ${from}:`, aiReply);
+
+    // TODO: send aiReply back to the customer via the WhatsApp Cloud API,
+    // and update the session state based on what was understood.
   } catch (err) {
     console.error('Error processing incoming webhook payload:', err);
   }
