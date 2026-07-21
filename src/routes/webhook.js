@@ -3,7 +3,7 @@ const router = express.Router();
 const { getOrCreateSession } = require('../services/session');
 const { getMenuProducts } = require('../services/menu');
 const { interpretMessage } = require('../services/ai');
-const { sendTextMessage } = require('../services/whatsapp');
+const { sendTextMessage, sendMenuImages } = require('../services/whatsapp');
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 
@@ -79,6 +79,12 @@ router.post('/webhook', async (req, res) => {
     // Send the AI's reply back to the customer on WhatsApp.
     await sendTextMessage(from, result.reply_text);
     console.log(`Sent reply to ${from}`);
+
+    // If the customer asked for the menu, follow up with the actual menu photos.
+    if (result.intent === 'menu_request') {
+      await sendMenuImages(from);
+      console.log(`Sent menu images to ${from}`);
+    }
 
     // TODO: use result.intent/result.items to actually update the session's
     // cart in Supabase.

@@ -59,10 +59,14 @@ aren't listed. If a size isn't specified and the item has multiple sizes, ask wh
 
 Respond with ONLY a JSON object (no other text) in exactly this shape:
 {
-  "intent": "add_to_cart" | "ask_clarification" | "greeting" | "checkout" | "other",
+  "intent": "menu_request" | "add_to_cart" | "ask_clarification" | "greeting" | "checkout" | "other",
   "items": [ { "name_ar": "<exact menu name>", "size_name": "<size or null>", "quantity": <number> } ],
   "reply_text": "<friendly, brief reply in Egyptian Arabic to send back on WhatsApp>"
-}`;
+}
+
+If the customer asks for the menu, where it is, or anything indicating they want to see the menu
+(in Arabic, Egyptian Arabic, or English), set intent to "menu_request" and write a short reply_text
+like "أهو المنيو يا فندم 👇" - the actual menu images will be sent separately, right after your reply.`;
 
   const response = await client.chat.completions.create({
     model: MODEL,
@@ -76,12 +80,20 @@ Respond with ONLY a JSON object (no other text) in exactly this shape:
   const rawContent = response.choices[0].message.content;
 
   try {
-    return JSON.parse(rawContent);
+    const parsed = JSON.parse(rawContent);
+
+    // JSON.parse("null") or JSON.parse("42") succeed without throwing, but
+    // aren't usable here - guard against those explicitly, not just parse errors.
+    if (!parsed || typeof parsed !== 'object' || !parsed.reply_text) {
+      throw new Error('Parsed JSON is missing required fields');
+    }
+
+    return parsed;
   } catch (err) {
     // Free models don't always obey "JSON only" perfectly - if parsing
-    // fails, fall back to just showing the customer something reasonable
+    // fails (or returns something unusable), fall back to a safe default
     // instead of crashing the whole message-handling flow.
-    console.error('AI did not return valid JSON:', rawContent);
+    console.error('AI did not return usable JSON:', rawContent);
     return {
       intent: 'other',
       items: [],
