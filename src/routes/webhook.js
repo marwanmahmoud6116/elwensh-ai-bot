@@ -3,6 +3,7 @@ const router = express.Router();
 const { getOrCreateSession } = require('../services/session');
 const { getMenuProducts } = require('../services/menu');
 const { interpretMessage } = require('../services/ai');
+const { sendTextMessage } = require('../services/whatsapp');
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 
@@ -75,9 +76,12 @@ router.post('/webhook', async (req, res) => {
     });
     console.log(`AI result for ${from}:`, JSON.stringify(result));
 
+    // Send the AI's reply back to the customer on WhatsApp.
+    await sendTextMessage(from, result.reply_text);
+    console.log(`Sent reply to ${from}`);
+
     // TODO: use result.intent/result.items to actually update the session's
-    // cart in Supabase, and send result.reply_text back via the WhatsApp
-    // Cloud API.
+    // cart in Supabase.
   } catch (err) {
     console.error('Error processing incoming webhook payload:', err);
   }
