@@ -17,4 +17,30 @@ async function getCategories() {
   return data;
 }
 
-module.exports = { getCategories };
+/**
+ * Fetches every menu product along with its category name and its sizes/
+ * prices, flattened into one array. This is what the AI needs to actually
+ * match a customer's words ("بيتزا مكس لحوم") to a real product instead of
+ * guessing at names.
+ */
+async function getMenuProducts() {
+  const { data, error } = await supabase
+    .from('menu_products')
+    .select(`
+      id,
+      name_ar,
+      name_en,
+      available,
+      categories ( name_en ),
+      product_sizes ( size_name, price )
+    `)
+    .eq('available', true);
+
+  if (error) {
+    throw new Error(`Failed to fetch menu products: ${error.message}`);
+  }
+
+  return data;
+}
+
+module.exports = { getCategories, getMenuProducts };

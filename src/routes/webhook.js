@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getOrCreateSession } = require('../services/session');
-const { getCategories } = require('../services/menu');
+const { getMenuProducts } = require('../services/menu');
 const { interpretMessage } = require('../services/ai');
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
@@ -60,24 +60,24 @@ router.post('/webhook', async (req, res) => {
     const session = await getOrCreateSession(from);
     console.log(`Session for ${from} - step: ${session.state.step}, cart items: ${session.state.cart.length}`);
 
-    // Pull the current menu categories - this is the data the OpenAI step
-    // will eventually use to understand what the customer is asking for.
-    const categories = await getCategories();
-    console.log(`Loaded ${categories.length} categories:`, categories.map(c => c.name_en).join(', '));
+    // Pull the actual menu items (with sizes/prices) - this is what the AI
+    // needs to match the customer's words to real dishes, not just category names.
+    const menuProducts = await getMenuProducts();
+    console.log(`Loaded ${menuProducts.length} menu products.`);
 
-    // Ask the AI to interpret what the customer wants, given the menu and
-    // their current session state. For now we just log the reply - actually
-    // sending it back via WhatsApp, and updating the session based on it,
-    // come next.
-    const aiReply = await interpretMessage({
+    // Ask the AI to interpret what the customer wants, given the real menu
+    // and their current session state. Returns structured JSON: intent,
+    // items to add to cart, and a reply to send back.
+    const result = await interpretMessage({
       customerMessage: textBody,
-      categories,
+      menuProducts,
       session,
     });
-    console.log(`AI reply for ${from}:`, aiReply);
+    console.log(`AI result for ${from}:`, JSON.stringify(result));
 
-    // TODO: send aiReply back to the customer via the WhatsApp Cloud API,
-    // and update the session state based on what was understood.
+    // TODO: use result.intent/result.items to actually update the session's
+    // cart in Supabase, and send result.reply_text back via the WhatsApp
+    // Cloud API.
   } catch (err) {
     console.error('Error processing incoming webhook payload:', err);
   }
